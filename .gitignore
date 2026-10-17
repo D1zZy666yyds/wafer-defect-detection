@@ -1,0 +1,25 @@
+# 隐私文件（禁止上传）
+*.docx
+
+# IDE 与本地依赖
+.idea/
+.deps/
+__pycache__/
+*.pyc
+
+# 大型可再生数据集（scripts/generate_dataset.py 可一键重新生成）
+data/images/
+data/labels/
+
+# 训练中间产物（保留 best.pt 与训练曲线图表）
+runs/val/
+runs/train/wafer_defect_seg/weights/last.pt
+runs/train/wafer_defect_seg/weights/epoch*.pt
+*.cache
+
+# 运行时输出
+results/
+history/
+
+# 预训练权重（Ultralytics 首次训练自动下载）
+yolov8s-seg.pt

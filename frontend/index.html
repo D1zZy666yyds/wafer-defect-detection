@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>半导体晶圆缺陷检测系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-light: #eff6ff;
+            --bg: #f4f6f9;
+            --card: #ffffff;
+            --border: #e4e8ef;
+            --text: #1e293b;
+            --text-2: #64748b;
+            --text-3: #94a3b8;
+            --green: #16a34a;
+            --red: #dc2626;
+            --orange: #d97706;
+            --pink: #db2777;
+            --radius: 10px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+        }
+
+        .container { max-width: 1320px; margin: 0 auto; padding: 20px; }
+
+        /* ===== 顶栏 ===== */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px 24px;
+            margin-bottom: 16px;
+        }
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .logo {
+            width: 40px; height: 40px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 20px;
+        }
+        .header h1 { font-size: 17px; font-weight: 600; }
+        .header .sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+        .header-right { display: flex; gap: 10px; }
+        .pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px;
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 12px; color: var(--text-2);
+        }
+        .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+
+        /* ===== 布局 ===== */
+        .grid-main {
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 1024px) { .grid-main { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+        .card-title {
+            font-size: 14px; font-weight: 600;
+            margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .card-title .tag { font-size: 12px; font-weight: 400; color: var(--text-3); }
+
+        /* ===== 上传区 ===== */
+        .upload-area {
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 36px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .2s;
+            background: #fafbfd;
+        }
+        .upload-area:hover { border-color: var(--primary); background: var(--primary-light); }
+        .upload-area.dragover { border-color: var(--primary); background: var(--primary-light); }
+        .upload-area .icon { font-size: 30px; margin-bottom: 8px; }
+        .upload-area p { color: var(--text-2); font-size: 13px; }
+        .upload-area .hint { font-size: 12px; color: var(--text-3); margin-top: 4px; }
+        #fileInput { display: none; }
+
+        .image-display {
+            width: 100%;
+            background: #f1f5f9;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-top: 14px;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            min-height: 320px;
+        }
+        .image-display img { max-width: 100%; max-height: 480px; object-fit: contain; }
+        .img-placeholder { color: var(--text-3); text-align: center; padding: 60px 0; }
+        .img-placeholder .icon { font-size: 36px; opacity: .4; margin-bottom: 8px; }
+
+        /* ===== 按钮 ===== */
+        .controls { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+        .btn {
+            padding: 9px 18px;
+            border: 1px solid transparent;
+            border-radius: 7px;
+            cursor: pointer;
+            font-size: 13px; font-weight: 500;
+            transition: all .15s;
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #f1f5f9; color: var(--text-2);
+        }
+        .btn:hover { background: #e2e8f0; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+
+        /* ===== 参数区 ===== */
+        .param-section { padding-top: 16px; border-top: 1px solid var(--border); margin-top: 16px; }
+        .param-title { font-size: 13px; font-weight: 600; margin-bottom: 14px; color: var(--text); }
+
+        .param-row { margin-bottom: 16px; }
+        .param-label {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px;
+            font-size: 12.5px; color: var(--text-2);
+        }
+        .param-label .val { color: var(--primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+        .single-slider input[type=range] {
+            width: 100%;
+            accent-color: var(--thumb-color, var(--primary));
+            cursor: pointer;
+            height: 20px;
+        }
+        .defect-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 12.5px; color: var(--text); font-weight: 500;
+        }
+        .defect-badge i {
+            width: 8px; height: 8px; border-radius: 50%;
+            display: inline-block;
+        }
+
+        /* 开关 */
+        .switch-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0; }
+        .switch-row .lbl { font-size: 12.5px; color: var(--text-2); }
+        .toggle { position: relative; width: 38px; height: 20px; display: inline-block; }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .toggle .slider-bg {
+            position: absolute; inset: 0;
+            background: #cbd5e1; border-radius: 20px;
+            cursor: pointer; transition: .2s;
+        }
+        .toggle .slider-bg::before {
+            content: ""; position: absolute;
+            width: 14px; height: 14px; left: 3px; top: 3px;
+            background: #fff; border-radius: 50%;
+            transition: .2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,.2);
+        }
+        .toggle input:checked + .slider-bg { background: var(--primary); }
+        .toggle input:checked + .slider-bg::before { transform: translateX(18px); }
+
+        /* ===== 结果区 ===== */
+        .status-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        .status-badge {
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 14px; font-weight: 700;
+            letter-spacing: .5px;
+        }
+        .status-badge.pass { background: #f0fdf4; color: var(--green); border: 1px solid #bbf7d0; }
+        .status-badge.fail { background: #fef2f2; color: var(--red); border: 1px solid #fecaca; }
+        .infer-time { font-size: 12px; color: var(--text-3); }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+        .stat-box {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-box .num { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .stat-box .lbl { font-size: 11.5px; color: var(--text-2); margin-top: 2px; }
+        .stat-box.c-red .num { color: var(--red); }
+        .stat-box.c-orange .num { color: var(--orange); }
+        .stat-box.c-pink .num { color: var(--pink); }
+        .stat-box.c-blue .num { color: var(--primary); }
+        .stat-box.c-green .num { color: var(--green); }
+
+        .defect-list { max-height: 240px; overflow-y: auto; }
+        .defect-item {
+            display: flex; align-items: center;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            gap: 12px;
+        }
+        .defect-item .bar { width: 3px; align-self: stretch; border-radius: 2px; }
+        .defect-item .info { flex: 1; min-width: 0; }
+        .defect-item .name { font-size: 13px; font-weight: 600; }
+        .defect-item .name .sev { font-weight: 400; font-size: 11.5px; margin-left: 8px; }
+        .defect-item .detail { font-size: 11.5px; color: var(--text-3); margin-top: 3px; }
+        .defect-item .conf {
+            font-size: 13px; font-weight: 600; color: var(--primary);
+            font-variant-numeric: tabular-nums;
+        }
+        .empty-tip { text-align: center; color: var(--text-3); padding: 40px 0; font-size: 13px; }
+
+        /* ===== 看板 ===== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        @media (max-width: 768px) { .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+        .kpi {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+        }
+        .kpi .num { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .kpi .lbl { font-size: 12px; color: var(--text-2); margin-top: 3px; }
+        .kpi.t-blue .num { color: var(--primary); }
+        .kpi.t-green .num { color: var(--green); }
+        .kpi.t-orange .num { color: var(--orange); }
+        .kpi.t-gray .num { color: var(--text); }
+
+        .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 768px) { .charts { grid-template-columns: 1fr; } }
+        .chart-box { height: 240px; position: relative; }
+
+        /* ===== 历史 ===== */
+        .history-list { max-height: 280px; overflow-y: auto; }
+        .history-item {
+            display: flex; align-items: center; gap: 12px;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background .15s;
+        }
+        .history-item:hover { background: #f8fafc; }
+        .history-item img {
+            width: 46px; height: 46px;
+            border-radius: 6px;
+            object-fit: cover;
+            background: #f1f5f9;
+            flex-shrink: 0;
+        }
+        .history-item .info { flex: 1; min-width: 0; }
+        .history-item .name {
+            font-size: 13px; font-weight: 500;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .history-item .meta { font-size: 11.5px; color: var(--text-3); margin-top: 3px; }
+        .h-status {
+            padding: 3px 10px; border-radius: 5px;
+            font-size: 11.5px; font-weight: 600;
+            flex-shrink: 0;
+        }
+        .h-status.pass { background: #f0fdf4; color: var(--green); }
+        .h-status.fail { background: #fef2f2; color: var(--red); }
+
+        /* 滚动条 */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #d3dce6; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #b8c4d0; }
+
+        /* Toast */
+        .toast {
+            position: fixed; top: 24px; right: 24px;
+            padding: 11px 20px;
+            background: #1e293b; color: #fff;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 9999;
+            box-shadow: 0 4px 16px rgba(0,0,0,.18);
+            animation: slideIn .25s ease;
+        }
+        .toast.error { background: var(--red); }
+        @keyframes slideIn { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+        .loading {
+            display: inline-block; width: 14px; height: 14px;
+            border: 2px solid rgba(255,255,255,.4);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- 顶栏 -->
+    <div class="header">
+        <div class="header-left">
+            <div class="logo">W</div>
+            <div>
+                <h1>半导体晶圆缺陷检测系统</h1>
+                <div class="sub">YOLOv8-Seg 实例分割 · 划痕 / 颗粒 / 缺口 · GPU 加速</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <span class="pill"><span class="dot"></span>服务运行中</span>
+            <span class="pill">模型: yolov8s-seg</span>
+        </div>
+    </div>
+
+    <!-- 主区域 -->
+    <div class="grid-main">
+        <!-- 左：上传 + 参数 -->
+        <div class="card">
+            <div class="card-title">图像检测 <span class="tag">支持 PNG / JPG / BMP / TIFF</span></div>
+
+            <div class="upload-area" id="uploadArea">
+                <div class="icon">📄</div>
+                <p>拖拽晶圆图像到此处，或点击上传</p>
+                <p class="hint">单张检测 · 上传后点击「开始检测」</p>
+            </div>
+            <input type="file" id="fileInput" accept="image/*">
+
+            <div class="image-display" id="imageDisplay" style="display:none;">
+                <img id="resultImage" src="" alt="检测结果">
+            </div>
+
+            <div class="controls">
+                <button class="btn btn-primary" id="detectBtn" disabled>开始检测</button>
+                <button class="btn" id="downloadBtn" disabled>下载结果图</button>
+                <button class="btn" id="clearBtn">清空</button>
+            </div>
+
+            <!-- 检测参数 -->
+            <div class="param-section">
+                <div class="param-title">检测参数 <span class="tag" style="font-weight:400; color:var(--text-3); font-size:11.5px;">各类缺陷只显示置信度 ≥ 所设值的检测结果</span></div>
+
+                <div class="param-row">
+                    <div class="param-label">
+                        <span class="defect-badge"><i style="background:var(--red)"></i>划痕 scratch</span>
+                        <span class="val" id="scratchText">≥ 0.00</span>
+                    </div>
+                    <div class="single-slider">
+                        <input type="range" id="scratchConf" min="0" max="0.95" step="0.05" value="0" style="--thumb-color: var(--red);">
+                    </div>
+                </div>
+
+                <div class="param-row">
+                    <div class="param-label">
+                        <span class="defect-badge"><i style="background:var(--orange)"></i>颗粒 particle</span>
+                        <span class="val" id="particleText">≥ 0.00</span>
+                    </div>
+                    <div class="single-slider">
+                        <input type="range" id="particleConf" min="0" max="0.95" step="0.05" value="0" style="--thumb-color: var(--orange);">
+                    </div>
+                </div>
+
+                <div class="param-row">
+                    <div class="param-label">
+                        <span class="defect-badge"><i style="background:var(--pink)"></i>缺口 notch</span>
+                        <span class="val" id="notchText">≥ 0.00</span>
+                    </div>
+                    <div class="single-slider">
+                        <input type="range" id="notchConf" min="0" max="0.95" step="0.05" value="0" style="--thumb-color: var(--pink);">
+                    </div>
+                </div>
+
+                <!-- 超分开关 -->
+                <div class="switch-row">
+                    <span class="lbl">超分辨率增强（提升微小缺陷检出，约需 2-3 秒）</span>
+                    <label class="toggle">
+                        <input type="checkbox" id="useSR">
+                        <span class="slider-bg"></span>
+                    </label>
+                </div>
+
+                <div class="controls">
+                    <button class="btn" id="resetParamBtn">恢复默认参数</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右：结果 -->
+        <div class="card">
+            <div class="card-title">检测结果 <span class="tag" id="resultFile"></span></div>
+
+            <div class="empty-tip" id="resultEmpty">上传图像并检测后，此处显示结果</div>
+
+            <div id="resultContent" style="display:none;">
+                <div class="status-row">
+                    <span class="status-badge pass" id="resultStatus">PASS</span>
+                    <span class="infer-time" id="resultTime"></span>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-box c-blue"><div class="num" id="totalDefects">0</div><div class="lbl">缺陷总数</div></div>
+                    <div class="stat-box c-green"><div class="num" id="yieldRate">--</div><div class="lbl">良率估算</div></div>
+                    <div class="stat-box c-red"><div class="num" id="criticalCount">0</div><div class="lbl">严重缺陷</div></div>
+                    <div class="stat-box c-red"><div class="num" id="scratchCount">0</div><div class="lbl">划痕</div></div>
+                    <div class="stat-box c-orange"><div class="num" id="particleCount">0</div><div class="lbl">颗粒</div></div>
+                    <div class="stat-box c-pink"><div class="num" id="notchCount">0</div><div class="lbl">缺口</div></div>
+                </div>
+
+                <div class="param-title" style="margin-bottom:10px;">缺陷明细</div>
+                <div class="defect-list" id="defectList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 统计看板 -->
+    <div class="card" style="margin-bottom:16px;">
+        <div class="card-title">
+            良率统计看板
+            <span style="display:flex; gap:8px;">
+                <button class="btn" style="padding:5px 12px; font-size:12px;" onclick="refreshStats()">刷新</button>
+                <button class="btn" style="padding:5px 12px; font-size:12px;" onclick="resetStats()">清空统计</button>
+            </span>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi t-green"><div class="num" id="statYield">--</div><div class="lbl">总体良率</div></div>
+            <div class="kpi t-blue"><div class="num" id="statTotal">0</div><div class="lbl">累计检测（张）</div></div>
+            <div class="kpi t-orange"><div class="num" id="statDefects">0</div><div class="lbl">累计缺陷（个）</div></div>
+            <div class="kpi t-gray"><div class="num" id="statTime">--</div><div class="lbl">平均推理耗时</div></div>
+        </div>
+
+        <div class="charts">
+            <div class="chart-box"><canvas id="defectChart"></canvas></div>
+            <div class="chart-box"><canvas id="severityChart"></canvas></div>
+        </div>
+    </div>
+
+    <!-- 历史 -->
+    <div class="card">
+        <div class="card-title">检测历史 <span class="tag">最近 20 条</span></div>
+        <div class="history-list" id="historyList">
+            <div class="empty-tip">暂无检测记录</div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8000/api';
+const HOST = 'http://localhost:8000';
+
+const DEFECTS = ['scratch', 'particle', 'notch'];
+const DEFECT_CN = { scratch: '划痕', particle: '颗粒', notch: '缺口' };
+const DEFECT_COLOR = { scratch: '#dc2626', particle: '#d97706', notch: '#db2777' };
+
+let currentFile = null;
+let currentResult = null;
+let defectChart = null, severityChart = null;
+
+const $ = id => document.getElementById(id);
+
+/* ================= 上传 ================= */
+const uploadArea = $('uploadArea'), fileInput = $('fileInput');
+
+uploadArea.addEventListener('click', () => fileInput.click());
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+    if (!file.type.startsWith('image/')) return toast('请上传图片文件', true);
+    currentFile = file;
+    const reader = new FileReader();
+    reader.onload = e => {
+        $('imageDisplay').style.display = 'flex';
+        $('resultImage').src = e.target.result;
+        $('detectBtn').disabled = false;
+    };
+    reader.readAsDataURL(file);
+}
+
+/* ================= 参数：各类别最低置信度 ================= */
+function initSliders() {
+    DEFECTS.forEach(key => {
+        const el = $(`${key}Conf`);
+        const update = () => {
+            $(`${key}Text`).textContent = '≥ ' + (+el.value).toFixed(2);
+        };
+        el.addEventListener('input', update);
+        update();
+    });
+
+    $('resetParamBtn').addEventListener('click', () => {
+        DEFECTS.forEach(key => {
+            $(`${key}Conf`).value = 0;
+            $(`${key}Text`).textContent = '≥ 0.00';
+        });
+        $('useSR').checked = false;
+        toast('参数已恢复默认');
+    });
+}
+
+function getConfRanges() {
+    const ranges = {};
+    let minOfAll = 1;
+    DEFECTS.forEach(key => {
+        const v = +$(`${key}Conf`).value;
+        if (v > 0) {
+            ranges[key] = v;
+            minOfAll = Math.min(minOfAll, v);
+        }
+    });
+    return { ranges, minOfAll };
+}
+
+/* ================= 检测 ================= */
+$('detectBtn').addEventListener('click', runDetection);
+$('clearBtn').addEventListener('click', clearAll);
+$('downloadBtn').addEventListener('click', downloadResult);
+
+async function runDetection() {
+    if (!currentFile) return;
+    const btn = $('detectBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading"></span> 检测中...';
+    if ($('useSR').checked) toast('已开启超分辨率增强，本次检测约需 2-3 秒');
+
+    try {
+        const { ranges, minOfAll } = getConfRanges();
+        const conf = Math.min(0.35, minOfAll);
+
+        const fd = new FormData();
+        fd.append('file', currentFile);
+        fd.append('use_sr', $('useSR').checked);
+        fd.append('conf_threshold', conf);
+        if (Object.keys(ranges).length) fd.append('conf_ranges', JSON.stringify(ranges));
+
+        const resp = await fetch(`${API_BASE}/detect`, { method: 'POST', body: fd });
+        const data = await resp.json();
+
+        if (data.success) {
+            currentResult = data;
+            displayResult(data);
+            loadHistory();
+            refreshStats();
+            $('downloadBtn').disabled = false;
+            toast(`检测完成：${data.result.total_defects} 个缺陷`);
+        } else {
+            toast('检测失败：' + (data.detail || data.error || '未知错误'), true);
+        }
+    } catch (e) {
+        toast('检测失败：' + e.message, true);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '重新检测';
+}
+
+function displayResult(data) {
+    $('resultEmpty').style.display = 'none';
+    $('resultContent').style.display = 'block';
+    $('resultFile').textContent = currentFile.name;
+
+    const r = data.result;
+
+    const st = $('resultStatus');
+    st.textContent = r.is_pass ? 'PASS' : 'FAIL';
+    st.className = 'status-badge ' + (r.is_pass ? 'pass' : 'fail');
+
+    $('resultTime').textContent = `推理 ${r.inference_time_ms} ms` + (r.use_sr ? ' · 含超分' : '');
+    $('totalDefects').textContent = r.total_defects;
+    $('yieldRate').textContent = r.yield_rate + '%';
+    $('criticalCount').textContent = r.severity_counts.critical || 0;
+    $('scratchCount').textContent = r.defect_counts.scratch || 0;
+    $('particleCount').textContent = r.defect_counts.particle || 0;
+    $('notchCount').textContent = r.defect_counts.notch || 0;
+
+    if (data.visualization_url) $('resultImage').src = HOST + data.visualization_url;
+
+    renderDefectList(r.detections);
+}
+
+function renderDefectList(dets) {
+    const list = $('defectList');
+    if (!dets || !dets.length) {
+        list.innerHTML = '<div class="empty-tip">当前置信度范围内无缺陷</div>';
+        return;
+    }
+    list.innerHTML = dets.map((d, i) => {
+        const b = d.bbox;
+        const sevTxt = d.severity === 'critical'
+            ? '<span style="color:var(--red)">严重</span>'
+            : '<span style="color:var(--orange)">轻微</span>';
+        return `
+        <div class="defect-item">
+            <div class="bar" style="background:${DEFECT_COLOR[d.class_name]}"></div>
+            <div class="info">
+                <div class="name">${i + 1}. ${DEFECT_CN[d.class_name]}${sevTxt ? '<span class="sev">' + sevTxt + '</span>' : ''}</div>
+                <div class="detail">位置 (${Math.round(b.x1)}, ${Math.round(b.y1)}) · 尺寸 ${Math.round(b.x2 - b.x1)}×${Math.round(b.y2 - b.y1)} px · 面积 ${Math.round(d.area)} px²</div>
+            </div>
+            <div class="conf">${(d.confidence * 100).toFixed(1)}%</div>
+        </div>`;
+    }).join('');
+}
+
+function clearAll() {
+    currentFile = null; currentResult = null;
+    fileInput.value = '';
+    $('imageDisplay').style.display = 'none';
+    $('resultEmpty').style.display = 'block';
+    $('resultContent').style.display = 'none';
+    $('resultFile').textContent = '';
+    $('detectBtn').disabled = true;
+    $('detectBtn').textContent = '开始检测';
+    $('downloadBtn').disabled = true;
+}
+
+function downloadResult() {
+    if (!currentResult) return;
+    const a = document.createElement('a');
+    a.href = HOST + currentResult.visualization_url;
+    a.download = 'wafer_result.png';
+    a.click();
+}
+
+/* ================= 图表 ================= */
+function initCharts() {
+    Chart.defaults.font.family = "-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif";
+    Chart.defaults.color = '#64748b';
+
+    defectChart = new Chart($('defectChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['划痕', '颗粒', '缺口'],
+            datasets: [{
+                data: [0, 0, 0],
+                backgroundColor: ['#dc2626', '#d97706', '#db2777'],
+                borderWidth: 2, borderColor: '#fff'
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            cutout: '62%',
+            plugins: { legend: { position: 'right', labels: { boxWidth: 10, padding: 14 } } }
+        }
+    });
+
+    severityChart = new Chart($('severityChart'), {
+        type: 'bar',
+        data: {
+            labels: ['严重', '轻微'],
+            datasets: [{
+                data: [0, 0],
+                backgroundColor: ['#dc2626', '#2563eb'],
+                borderRadius: 5, barThickness: 40
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, border: { display: false } },
+                y: { grid: { color: '#eef2f7' }, border: { display: false }, beginAtZero: true }
+            }
+        }
+    });
+}
+
+/* ================= 统计 ================= */
+async function refreshStats() {
+    try {
+        const d = await (await fetch(`${API_BASE}/stats/yield`)).json();
+        if (d.total_wafers === undefined) return;
+        $('statYield').textContent = d.total_wafers > 0 ? d.yield_rate + '%' : '--';
+        $('statTotal').textContent = d.total_wafers;
+        $('statDefects').textContent = d.total_defects || 0;
+        $('statTime').textContent = d.total_wafers > 0 ? Math.round(d.avg_inference_ms) + ' ms' : '--';
+
+        const dc = d.defect_type_counts || {};
+        defectChart.data.datasets[0].data = [dc.scratch || 0, dc.particle || 0, dc.notch || 0];
+        defectChart.update();
+
+        const sc = d.severity_counts || {};
+        severityChart.data.datasets[0].data = [sc.critical || 0, sc.minor || 0];
+        severityChart.update();
+    } catch (e) {}
+}
+
+async function resetStats() {
+    if (!confirm('确定清空所有统计数据与历史记录？')) return;
+    await fetch(`${API_BASE}/stats/reset`, { method: 'POST' });
+    refreshStats();
+    loadHistory();
+    toast('统计已清空');
+}
+
+/* ================= 历史 ================= */
+async function loadHistory() {
+    try {
+        const d = await (await fetch(`${API_BASE}/results?limit=20`)).json();
+        const list = $('historyList');
+        if (!d.results || !d.results.length) {
+            list.innerHTML = '<div class="empty-tip">暂无检测记录</div>';
+            return;
+        }
+        list.innerHTML = d.results.map(it => `
+            <div class="history-item">
+                <img src="${HOST}${it.vis_image}" alt="">
+                <div class="info">
+                    <div class="name">${it.filename}</div>
+                    <div class="meta">${it.timestamp.replace(/_/g, ' ')} · ${it.total_defects} 个缺陷</div>
+                </div>
+                <span class="h-status ${it.is_pass ? 'pass' : 'fail'}">${it.is_pass ? 'PASS' : 'FAIL'}</span>
+            </div>`).join('');
+    } catch (e) {}
+}
+
+/* ================= Toast ================= */
+function toast(msg, isErr = false) {
+    const t = document.createElement('div');
+    t.className = 'toast' + (isErr ? ' error' : '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2600);
+}
+
+/* ================= 初始化 ================= */
+document.addEventListener('DOMContentLoaded', () => {
+    initSliders();
+    initCharts();
+    loadHistory();
+    refreshStats();
+    setInterval(refreshStats, 15000);
+});
+</script>
+</body>
+</html>
